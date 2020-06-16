@@ -1,8 +1,8 @@
+// aws configuration
 provider "aws" {
   region  = "ap-south-1"
 }
-
-
+//s3 bucket creation
  resource "aws_s3_bucket" "coffeeshop-task1" {
   bucket = "coffeeshop-task1"
   acl    = "private"
@@ -10,11 +10,10 @@ provider "aws" {
     Name = "Images Bucket"
   }
 }
-
 locals {
   s3_origin_id = "coffeeshop-task1"
 }
-
+//uploading files to s3
 resource "aws_s3_bucket_object" "uploads" {
   for_each = fileset("./", "*")
   bucket = "coffeeshop-task1"
@@ -22,12 +21,12 @@ resource "aws_s3_bucket_object" "uploads" {
   source = "./${each.value}"
    depends_on = [aws_s3_bucket.coffeeshop-task1]
 }
-
+//creating cloudfront origin access identity
 resource "aws_cloudfront_origin_access_identity" "origin_access_identity" {
   comment = "Some comment"
   depends_on=[aws_s3_bucket.coffeeshop-task1]
 }
-
+// creating cloud distribution
 resource "aws_cloudfront_distribution" "s3_distribution" {
   depends_on = [aws_s3_bucket_object.uploads]
   origin {
@@ -116,8 +115,7 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
     cloudfront_default_certificate = true
   }
 }
-
-
+// creating s3 bucket policy for cloudfront
 data "aws_iam_policy_document" "s3_policy" {
   statement {
     actions   = ["s3:GetObject"]
@@ -128,7 +126,6 @@ data "aws_iam_policy_document" "s3_policy" {
       identifiers = ["${aws_cloudfront_origin_access_identity.origin_access_identity.iam_arn}"]
     }
   }
-
   statement {
     actions   = ["s3:ListBucket"]
     resources = ["${aws_s3_bucket.coffeeshop-task1.arn}"]
@@ -139,15 +136,11 @@ data "aws_iam_policy_document" "s3_policy" {
     }
   }
 }
-
 resource "aws_s3_bucket_policy" "coffeeshop-task1-policy" {
   bucket = "${aws_s3_bucket.coffeeshop-task1.id}"
   policy = "${data.aws_iam_policy_document.s3_policy.json}"
 }
+// getting the cloudfront url for mail
 output "cloudfrontdomain" {
  value = aws_cloudfront_distribution.s3_distribution.domain_name
 }
-
-
-// originid=S3-coffeeshop-task1
-// jenkins output the following url addres | grep https://coffeeshop-task1.s3.ap-south-1.amazonaws.com/  
